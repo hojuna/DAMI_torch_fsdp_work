@@ -7,14 +7,10 @@ data/*
 sessions/session02_deeplearning/best_model.pth
 
 # 허깅페이스 모델
-assignment/hf_models/.locks/models--t5-large/bb566a699a6939ffa2ac2fa7eb26fd02b13d4d14956186d7af1e46ce19c67d32.lock
-assignment/hf_models/.locks/models--t5-large/d52815623b46b7db1c4b957b5a83a8ad30b0146a.lock
-assignment/hf_models/.locks/models--t5-large/e4be09f2bfa7ed03596de9bdad4ddc0c7bdff4c1.lock
-assignment/hf_models/hub/version.txt
-assignment/hf_models/models--t5-large/blobs/bb566a699a6939ffa2ac2fa7eb26fd02b13d4d14956186d7af1e46ce19c67d32
-assignment/hf_models/models--t5-large/blobs/d52815623b46b7db1c4b957b5a83a8ad30b0146a
-assignment/hf_models/models--t5-large/blobs/e4be09f2bfa7ed03596de9bdad4ddc0c7bdff4c1
-assignment/hf_models/models--t5-large/refs/main
-assignment/hf_models/models--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
-assignment/hf_models/models--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/generation_config.json
-assignment/hf_models/models--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/model.safetensors
+hf_models/*
+
+# 캐시 파일들도 함께 무시
+**/__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store

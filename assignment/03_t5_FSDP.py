@@ -72,7 +72,9 @@ def find_max_batch_size(local_rank, model, dataset, device, start_batch_size=2, 
                 break
             else:
                 raise e
-
+    del dataloader  # 기존 dataloader 삭제
+    del sampler    # 기존 sampler 삭제
+    torch.cuda.empty_cache()  # 메모리 정리
     pbar.close()
     return success_batch_size
 

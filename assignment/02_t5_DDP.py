@@ -62,17 +62,19 @@ def find_max_batch_size(local_rank, model, dataset, device, start_batch_size=2, 
                 break  # 배치 크기 테스트가 끝나면 다음으로 이동
 
             success_batch_size = batch_size
-            batch_size *= 2  # 2배로 증가
+            batch_size += 1  # 2배로 증가
             pbar.set_postfix(success_batch_size=success_batch_size)
 
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
                 print(f"GPU {local_rank}: Batch size {batch_size} failed due to OOM.")
-                batch_size //= 2  # OOM 발생 시 절반으로 감소
+                batch_size -= 1  # OOM 발생 시 절반으로 감소
                 break
             else:
                 raise e
-
+    del dataloader  # 기존 dataloader 삭제
+    del sampler    # 기존 sampler 삭제
+    torch.cuda.empty_cache()  # 메모리 정리
     pbar.close()
     return success_batch_size
 

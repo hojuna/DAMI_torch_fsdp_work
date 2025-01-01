@@ -67,12 +67,12 @@ def find_max_batch_size(device, start_batch_size=2, max_batch_size=1024):
             pbar.update(batch_size - pbar.n)  # pbar 업데이트
             pbar.set_postfix(success_batch_size=batch_size)
             success_batch_size = batch_size
-            batch_size *= 2
+            batch_size += 1
 
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
                 print(f"Batch size {batch_size} failed due to OOM.")
-                batch_size //= 2
+                batch_size -= 1
                 break
             else:
                 print(f"Unexpected error occurred: {str(e)}")
@@ -92,11 +92,14 @@ def train(device, batch_size, epochs=1):
 
     dataset = DummyDataset()
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     scaler = GradScaler()
 
     start_time = torch.cuda.Event(enable_timing=True)
     end_time = torch.cuda.Event(enable_timing=True)
+
+    total_tokens_per_second = 0
 
     for epoch in tqdm(range(epochs), desc="Epoch Progress", leave=True):
         batch_bar = tqdm(dataloader, desc=f"Batch Progress (Epoch {epoch + 1}/{epochs})", leave=False)
@@ -119,12 +122,15 @@ def train(device, batch_size, epochs=1):
             elapsed_time = start_time.elapsed_time(end_time) / 1000.0  # 초 단위로 변환
             tokens_per_second = batch_tokens / elapsed_time if elapsed_time > 0 else 0
 
+
             # tqdm 업데이트
             batch_bar.set_postfix(
                 loss=loss.item(),
                 tokens_per_second=f"{tokens_per_second:.2f}",
             )
-
+        total_tokens_per_second += tokens_per_second
+        
+    print(f"Total tokens per second: {total_tokens_per_second/epochs:.2f}")
 # GPU 설정 및 최대 배치 크기 탐색 실행
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

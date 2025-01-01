@@ -50,30 +50,34 @@ def find_max_batch_size(local_rank, model, dataset, device, start_batch_size=2, 
 
         try:
             torch.cuda.empty_cache()
-            for data in dataloader:
-                data = {k: v.to(device) for k, v in data.items()}
-                optimizer.zero_grad()
-                with torch.cuda.amp.autocast():
-                    output = model(**data)
-                    loss = torch.mean(output.loss)
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                break  # 배치 크기 테스트가 끝나면 다음으로 이동
+            for i in range(2):
+                for data in dataloader:
+                    data = {k: v.to(device) for k, v in data.items()}
+                    optimizer.zero_grad()
+                    with torch.cuda.amp.autocast():
+                        output = model(**data)
+                        loss = torch.mean(output.loss)
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                    break  # 배치 크기 테스트가 끝나면 다음으로 이동
 
             success_batch_size = batch_size
-            batch_size += 1  # 2배로 증가
+            batch_size += 1  # 1씩 증가
             pbar.set_postfix(success_batch_size=success_batch_size)
 
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
                 print(f"GPU {local_rank}: Batch size {batch_size} failed due to OOM.")
-                batch_size -= 1  # OOM 발생 시 절반으로 감소
+                batch_size -= 1  # OOM 발생 시 1씩 감소
                 break
             else:
                 raise e
+            
     del dataloader  # 기존 dataloader 삭제
     del sampler    # 기존 sampler 삭제
+    del optimizer  # 기존 optimizer 삭제
+    del scaler     # 기존 scaler 삭제
     torch.cuda.empty_cache()  # 메모리 정리
     pbar.close()
     return success_batch_size
@@ -88,7 +92,8 @@ def train_ddp(local_rank, world_size, epochs=2):
     # 데이터 및 모델 준비
     dataset = DummyDataset()
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=local_rank)
-    dataloader = DataLoader(dataset, sampler=sampler, drop_last=True)
+
+
 
     model = T5ForConditionalGeneration.from_pretrained("t5-large", cache_dir=HF_HOME).to(device)
     model = DDP(model, device_ids=[local_rank])
@@ -98,11 +103,11 @@ def train_ddp(local_rank, world_size, epochs=2):
     # 배치 크기 탐색
     max_batch_size = find_max_batch_size(local_rank, model, dataset, device)
     print(f"GPU {local_rank}: Using batch size {max_batch_size}")
+    dataloader = DataLoader(dataset, batch_size=max_batch_size, sampler=sampler, drop_last=True)
 
     # 학습 루프
     for epoch in range(epochs):
         sampler.set_epoch(epoch)  # 샘플러 재설정
-        dataloader = DataLoader(dataset, batch_size=max_batch_size, sampler=sampler, drop_last=True)
 
         batch_bar = tqdm(dataloader, desc=f"GPU {local_rank} Epoch {epoch + 1}/{epochs}", position=local_rank)
         for i, data in enumerate(batch_bar):

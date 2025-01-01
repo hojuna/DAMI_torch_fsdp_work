@@ -74,6 +74,8 @@ def find_max_batch_size(local_rank, model, dataset, device, start_batch_size=2, 
                 raise e
     del dataloader  # 기존 dataloader 삭제
     del sampler    # 기존 sampler 삭제
+    del optimizer  # 기존 optimizer 삭제
+    del scaler     # 기존 scaler 삭제
     torch.cuda.empty_cache()  # 메모리 정리
     pbar.close()
     return success_batch_size
@@ -96,11 +98,10 @@ def train_fsdp(local_rank, world_size, epochs=2):
 
     max_batch_size = find_max_batch_size(local_rank, model, dataset, device)
     print(f"GPU {local_rank}: Using batch size {max_batch_size}")
-
+    dataloader = DataLoader(dataset, batch_size=max_batch_size, sampler=sampler, drop_last=True)
+    
     for epoch in range(epochs):
         sampler.set_epoch(epoch)
-        dataloader = DataLoader(dataset, batch_size=max_batch_size, sampler=sampler, drop_last=True)
-
         batch_bar = tqdm(dataloader, desc=f"GPU {local_rank} Epoch {epoch + 1}/{epochs}", position=local_rank)
         for data in batch_bar:
             data = {k: v.to(device) for k, v in data.items()}

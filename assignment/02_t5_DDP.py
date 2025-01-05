@@ -46,7 +46,8 @@ def find_max_batch_size(local_rank, model, dataset, device, start_batch_size=2, 
 
     while batch_size <= max_batch_size:
         sampler = DistributedSampler(dataset, shuffle=False)
-        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, drop_last=True)
+        batch_sampler = torch.utils.data.BatchSampler(sampler, batch_size=batch_size, drop_last=True)
+        dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
 
         try:
             torch.cuda.empty_cache()
@@ -103,7 +104,8 @@ def train_ddp(local_rank, world_size, epochs=2):
     # 배치 크기 탐색
     max_batch_size = find_max_batch_size(local_rank, model, dataset, device)
     print(f"GPU {local_rank}: Using batch size {max_batch_size}")
-    dataloader = DataLoader(dataset, batch_size=max_batch_size, sampler=sampler, drop_last=True)
+    batch_sampler = torch.utils.data.BatchSampler(sampler, batch_size=max_batch_size, drop_last=True)
+    dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
 
     # 학습 루프
     for epoch in range(epochs):
@@ -137,7 +139,8 @@ def train_ddp(local_rank, world_size, epochs=2):
                 loss=loss.item(),
                 tokens_per_second=f"{tokens_per_second:.2f}",
             )
-
+            
+    torch.distributed.destroy_process_group()
 
 if __name__ == "__main__":
     os.environ["MASTER_ADDR"] = "127.0.0.1"

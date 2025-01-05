@@ -91,7 +91,9 @@ def train(device, batch_size, epochs=1):
     model = DataParallel(model)
 
     dataset = DummyDataset()
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    sampler = torch.utils.data.RandomSampler(dataset)
+    batch_sampler = torch.utils.data.BatchSampler(sampler, batch_size=batch_size, drop_last=True)
+    dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
     
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     scaler = GradScaler()

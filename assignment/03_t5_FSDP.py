@@ -4,9 +4,15 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 from transformers import T5ForConditionalGeneration
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import (
+    FullyShardedDataParallel as FSDP,
+    ShardingStrategy
+)
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+from transformers.models.t5.modeling_t5 import T5Block
 from torch.cuda.amp import GradScaler
 import torch.distributed as dist
+import functools
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -91,7 +97,19 @@ def train_fsdp(local_rank, world_size, epochs=2):
     dataloader = DataLoader(dataset, sampler=sampler, drop_last=True)
 
     model = T5ForConditionalGeneration.from_pretrained("t5-large", cache_dir=HF_HOME).to(device)
-    model = FSDP(model)
+    t5_auto_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={
+            T5Block,
+        },
+    )
+
+    model = FSDP(
+        model,
+        auto_wrap_policy=t5_auto_wrap_policy,
+        device_id=torch.cuda.current_device(),
+        sharding_strategy=ShardingStrategy.SHARD_GRAD_OP # ZERO2
+    )
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     scaler = GradScaler()
